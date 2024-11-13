@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Eye, EyeOff, Mail, Lock, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-// Define types for our forms and API responses
 interface LoginForm {
   email: string;
   password: string;
@@ -15,6 +14,12 @@ interface SignupForm extends LoginForm {
 
 interface AuthResponse {
   token: string;
+  user: {
+    email: string;
+    role: string;
+    user_id: string;
+    username: string;
+  };
 }
 
 export default function AuthScreen() {
@@ -35,6 +40,7 @@ export default function AuthScreen() {
   ];
 
   const [error, setError] = useState<string | null>(null);
+  const [activeImage, setActiveImage] = useState(0);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -47,6 +53,10 @@ export default function AuthScreen() {
 
   const saveToken = (token: string) => {
     localStorage.setItem("authToken", token);
+  };
+
+  const saveUserType = (userType: string) => {
+    localStorage.setItem("userType", userType);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,6 +83,7 @@ export default function AuthScreen() {
 
         const data: AuthResponse = await response.json();
         saveToken(data.token);
+        saveUserType(data.user.role);
 
         // Redirect to findYourPlace after successful login
         navigate("/findYourPlace");
@@ -98,7 +109,6 @@ export default function AuthScreen() {
         }
 
         const data: AuthResponse = await response.json();
-        saveToken(data.token);
 
         // Switch to login view after successful signup
         setIsLogin(true);
@@ -120,33 +130,48 @@ export default function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col">
       {/* Main Content */}
       <div className="flex-grow flex items-center justify-center px-4 py-12">
-        <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg relative overflow-hidden">
-          {/* Background Image */}
+        <div className="max-w-md w-full space-y-8 backdrop-blur-sm bg-white/80 p-8 rounded-2xl shadow-2xl relative overflow-hidden border border-white/20">
+          {/* Animated Background */}
           <div
-            className="absolute inset-0 bg-cover bg-center opacity-10 z-0"
+            className="absolute inset-0 bg-cover bg-center opacity-5 z-0 transition-all duration-1000 transform hover:scale-110"
             style={{
-              backgroundImage: `url(${heroImages[0]})`,
+              backgroundImage: `url(${heroImages[activeImage]})`,
             }}
-          ></div>
+          />
 
           {/* Content */}
           <div className="relative z-10">
-            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-              {isLogin ? "Sign in to your account" : "Create your account"}
-            </h2>
+            <div className="flex flex-col items-center">
+              <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+                <User className="w-12 h-12 text-white" />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900 tracking-tight">
+                {isLogin ? "Welcome back" : "Join us"}
+              </h2>
+              <p className="mt-2 text-gray-600 text-center">
+                {isLogin
+                  ? "Sign in to access your account"
+                  : "Create your account to get started"}
+              </p>
+            </div>
+
             {error && (
-              <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
+              <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-md">
+                <p className="text-sm font-medium">{error}</p>
               </div>
             )}
+
             <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-              <div className="rounded-md shadow-sm -space-y-px">
+              <div className="space-y-4">
                 {!isLogin && (
                   <div>
-                    <label htmlFor="name" className="sr-only">
+                    <label
+                      htmlFor="name"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
                       Name
                     </label>
                     <div className="relative">
@@ -155,21 +180,24 @@ export default function AuthScreen() {
                         name="name"
                         type="text"
                         required
-                        className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                        placeholder="Name"
+                        value={formData.name || ""}
+                        onChange={handleInputChange}
+                        className="pl-10 w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white/50 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
+                        placeholder="Your name"
                       />
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <User
-                          className="h-5 w-5 text-gray-400"
-                          aria-hidden="true"
-                        />
+                        <User className="h-5 w-5 text-gray-400" />
                       </div>
                     </div>
                   </div>
                 )}
+
                 <div>
-                  <label htmlFor="email-address" className="sr-only">
-                    Email address
+                  <label
+                    htmlFor="email-address"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Email
                   </label>
                   <div className="relative">
                     <input
@@ -178,19 +206,22 @@ export default function AuthScreen() {
                       type="email"
                       autoComplete="email"
                       required
-                      className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 ${isLogin ? "rounded-t-md" : ""} focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="pl-10 w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white/50 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
                       placeholder="Email address"
                     />
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail
-                        className="h-5 w-5 text-gray-400"
-                        aria-hidden="true"
-                      />
+                      <Mail className="h-5 w-5 text-gray-400" />
                     </div>
                   </div>
                 </div>
+
                 <div>
-                  <label htmlFor="password" className="sr-only">
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Password
                   </label>
                   <div className="relative">
@@ -200,14 +231,13 @@ export default function AuthScreen() {
                       type={showPassword ? "text" : "password"}
                       autoComplete="current-password"
                       required
-                      className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="pl-10 w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white/50 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-gray-900"
                       placeholder="Password"
                     />
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Lock
-                        className="h-5 w-5 text-gray-400"
-                        aria-hidden="true"
-                      />
+                      <Lock className="h-5 w-5 text-gray-400" />
                     </div>
                     <button
                       type="button"
@@ -215,15 +245,9 @@ export default function AuthScreen() {
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
-                        <EyeOff
-                          className="h-5 w-5 text-gray-400"
-                          aria-hidden="true"
-                        />
+                        <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
                       ) : (
-                        <Eye
-                          className="h-5 w-5 text-gray-400"
-                          aria-hidden="true"
-                        />
+                        <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
                       )}
                     </button>
                   </div>
@@ -240,7 +264,7 @@ export default function AuthScreen() {
                   />
                   <label
                     htmlFor="remember-me"
-                    className="ml-2 block text-sm text-gray-900"
+                    className="ml-2 block text-sm text-gray-700"
                   >
                     Remember me
                   </label>
@@ -250,9 +274,9 @@ export default function AuthScreen() {
                   <div className="text-sm">
                     <a
                       href="#"
-                      className="font-medium text-blue-600 hover:text-blue-500"
+                      className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
                     >
-                      Forgot your password?
+                      Forgot password?
                     </a>
                   </div>
                 )}
@@ -261,20 +285,20 @@ export default function AuthScreen() {
               <div>
                 <button
                   type="submit"
-                  className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 shadow-lg hover:shadow-xl"
                 >
-                  {isLogin ? "Sign in" : "Sign up"}
+                  {isLogin ? "Sign in" : "Create account"}
                 </button>
               </div>
             </form>
 
-            <div className="mt-6">
+            <div className="mt-8">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-300"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">
+                  <span className="px-4 bg-white/80 text-gray-500">
                     Or continue with
                   </span>
                 </div>
@@ -283,7 +307,7 @@ export default function AuthScreen() {
               <div className="mt-6">
                 <button
                   onClick={handleGoogleSignIn}
-                  className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                 >
                   <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
                     <path
@@ -304,7 +328,7 @@ export default function AuthScreen() {
                     />
                     <path d="M1 1h22v22H1z" fill="none" />
                   </svg>
-                  Sign in with Google
+                  Continue with Google
                 </button>
               </div>
             </div>
@@ -315,7 +339,7 @@ export default function AuthScreen() {
                   ? "Don't have an account?"
                   : "Already have an account?"}{" "}
                 <button
-                  className="font-medium text-blue-600 hover:text-blue-500"
+                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
                   onClick={() => setIsLogin(!isLogin)}
                 >
                   {isLogin ? "Sign up" : "Sign in"}
@@ -327,18 +351,24 @@ export default function AuthScreen() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-800 py-8 px-4">
+      <footer className="bg-gray-800/90 backdrop-blur-sm py-8 px-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <h3 className="text-xl font-bold mb-4 text-white">Contact Us</h3>
             <p className="text-gray-400">123 Main St, Anytown USA</p>
             <p className="text-gray-400">info@spacer.com</p>
           </div>
-          <div className="space-x-4">
-            <a href="#" className="text-white hover:text-gray-300">
+          <div className="space-x-6">
+            <a
+              href="#"
+              className="text-gray-300 hover:text-white transition-colors"
+            >
               Terms of Service
             </a>
-            <a href="#" className="text-white hover:text-gray-300">
+            <a
+              href="#"
+              className="text-gray-300 hover:text-white transition-colors"
+            >
               Privacy Policy
             </a>
           </div>

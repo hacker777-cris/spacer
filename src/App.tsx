@@ -12,14 +12,21 @@ import AuthScreen from "./components/AuthScreen";
 import AboutUs from "./components/AboutUs";
 import FindYourPlace from "./components/FindYourPlace";
 import AddYourSpace from "./components/AddYourSpace";
+import AdminPanel from "./components/AdminPanel";
+import ProfileComponent from "./components/ProfilePage";
 import "./index.css";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User } from "lucide-react";
 
 const NavigationContent = () => {
   const navigate = useNavigate();
   const isAuthenticated = localStorage.getItem("authToken") !== null;
+  const userType = localStorage.getItem("userType");
 
   const handleLogout = () => {
     localStorage.removeItem("authToken");
+    localStorage.removeItem("userType");
     navigate("/login");
   };
 
@@ -29,7 +36,7 @@ const NavigationContent = () => {
         <Link to="/" className="text-2xl font-bold">
           SPACER
         </Link>
-        <ul className="flex space-x-4">
+        <ul className="flex space-x-4 items-center">
           <li>
             <Link to="/" className="hover:text-gray-300">
               Home
@@ -40,27 +47,59 @@ const NavigationContent = () => {
               About Us
             </Link>
           </li>
-          <li>
-            <Link to="/FindYourPlace" className="hover:text-gray-300">
-              Find a Place
-            </Link>
-          </li>
-          <li>
-            <Link to="/AddYourSpace" className="hover:text-gray-300">
-              List Your Place
-            </Link>
-          </li>
+          {isAuthenticated && (
+            <>
+              <li>
+                <Link to="/FindYourPlace" className="hover:text-gray-300">
+                  Find a Place
+                </Link>
+              </li>
+              <li>
+                <Link to="/AddYourSpace" className="hover:text-gray-300">
+                  List Your Place
+                </Link>
+              </li>
+              {userType === "Admin" && (
+                <li>
+                  <Link to="/admin-panel" className="hover:text-gray-300">
+                    Admin Panel
+                  </Link>
+                </li>
+              )}
+            </>
+          )}
           <li>
             {isAuthenticated ? (
-              <button onClick={handleLogout} className="hover:text-gray-300">
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                className="hover:text-gray-300"
+              >
                 Logout
-              </button>
+              </Button>
             ) : (
               <Link to="/login" className="hover:text-gray-300">
                 Login
               </Link>
             )}
           </li>
+          {isAuthenticated && (
+            <li>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                onClick={() => navigate("/Profile")}
+              >
+                <Avatar>
+                  <AvatarImage src="/placeholder-avatar.jpg" alt="Profile" />
+                  <AvatarFallback>
+                    <User className="h-5 w-5" />
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </li>
+          )}
         </ul>
       </div>
     </nav>
@@ -68,6 +107,8 @@ const NavigationContent = () => {
 };
 
 function App() {
+  const isAuthenticated = localStorage.getItem("authToken") !== null;
+
   return (
     <Provider store={store}>
       <Router>
@@ -78,8 +119,15 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<AuthScreen />} />
               <Route path="/about" element={<AboutUs />} />
-              <Route path="/FindYourPlace" element={<FindYourPlace />} />
-              <Route path="/AddYourSpace" element={<AddYourSpace />} />
+              {isAuthenticated && (
+                <>
+                  <Route path="/FindYourPlace" element={<FindYourPlace />} />
+                  <Route path="/AddYourSpace" element={<AddYourSpace />} />
+                  <Route path="/Profile" element={<ProfileComponent />} />
+
+                  <Route path="/admin-panel" element={<AdminPanel />} />
+                </>
+              )}
             </Routes>
           </main>
           <footer className="bg-gray-800 text-white p-4 mt-auto">
