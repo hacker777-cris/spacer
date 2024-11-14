@@ -151,7 +151,7 @@ export default function ProfileBookings() {
                       ))}
                     </div>
                   )}
-                  {booking.status === "pending" && (
+                  {booking.status === "confirmed" && (
                     <Button
                       onClick={() => handleReviewClick(booking)}
                       className="mt-4"

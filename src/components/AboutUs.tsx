@@ -1,5 +1,14 @@
 import React from "react";
-import { Camera, Home, LogIn, Mail, MapPin, Phone } from "lucide-react";
+import {
+  Camera,
+  Facebook,
+  Home,
+  Instagram,
+  LogIn,
+  Mail,
+  MapPin,
+  Phone,
+} from "lucide-react";
 
 export default function AboutUs() {
   const teamMembers = [
@@ -117,7 +126,7 @@ export default function AboutUs() {
         <section className="py-16 px-4 bg-gray-800 text-white">
           <div className="max-w-4xl mx-auto text-center">
             <h2 className="text-3xl font-bold mb-8">Get in Touch</h2>
-            <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-8">
+            <div className="flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-8 mb-8">
               <div className="flex items-center">
                 <Mail className="mr-2" size={20} />
                 <span>info@spacer.com</span>
@@ -130,6 +139,22 @@ export default function AboutUs() {
                 <MapPin className="mr-2" size={20} />
                 <span>123 Main St, Anytown, USA</span>
               </div>
+            </div>
+            <div className="flex justify-center space-x-6">
+              <a
+                href="#"
+                className="text-white hover:text-blue-400 transition-colors duration-200 flex items-center"
+              >
+                <Facebook size={24} className="mr-2" />
+                <span>Follow us on Facebook</span>
+              </a>
+              <a
+                href="#"
+                className="text-white hover:text-pink-400 transition-colors duration-200 flex items-center"
+              >
+                <Instagram size={24} className="mr-2" />
+                <span>Follow us on Instagram</span>
+              </a>
             </div>
           </div>
         </section>

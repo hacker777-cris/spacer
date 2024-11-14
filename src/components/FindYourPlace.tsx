@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Search, Filter } from "lucide-react";
-import { usePaystackPayment } from "react-paystack";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import BookingSuccess from "./BookingConfirm";
 
 import { Button } from "@/components/ui/button";
+import { PaymentModal } from "@/components/PaymentModal";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ interface SpacesResponse {
   pages: number;
   current_page: number;
 }
+
 interface BookingResponse {
   message: string;
   booking_id: string;
@@ -57,34 +59,73 @@ export default function FindYourPlace() {
   const [error, setError] = useState<string | null>(null);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [verificationResponse, setVerificationResponse] = useState<{
+    message: string;
+    payment_id: string;
+  } | null>(null);
   const [bookingStartDate, setBookingStartDate] = useState<string>("");
   const [bookingEndDate, setBookingEndDate] = useState<string>("");
   const [isProcessingPayment, setIsProcessingPayment] =
     useState<boolean>(false);
+  const [dateError, setDateError] = useState<string>("");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  // Initialize Paystack payment hook outside of the handler
-  const initializePayment = usePaystackPayment({
-    publicKey: "pk_test_2d8962ca7e712f2b8d07d539d8d3cbee704f025c",
-    currency: "KES",
-    amount: 0, // Will be updated when booking
-    email: "", // Will be updated when booking
-    reference: "", // Will be updated when booking
-    callback_url: "", // Will be updated when booking
-  });
 
   useEffect(() => {
     fetchSpaces();
   }, [currentPage]);
 
   useEffect(() => {
+    // Get both reference and bookingId from URL params
     const reference = searchParams.get("reference");
-    if (reference) {
-      handlePaymentVerification(reference);
-      navigate("/", { replace: true });
+    const urlBookingId = searchParams.get("bookingId");
+
+    if (reference && urlBookingId) {
+      handlePaymentVerification(urlBookingId);
     }
   }, [searchParams]);
+
+  const getMinDateTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  };
+
+  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const startDate = new Date(e.target.value);
+    const now = new Date();
+
+    if (startDate < now) {
+      setDateError("Start date cannot be in the past");
+      setBookingStartDate("");
+      return;
+    }
+
+    setDateError("");
+    setBookingStartDate(e.target.value);
+
+    // Clear end date if it's before the new start date
+    if (bookingEndDate && new Date(bookingEndDate) <= startDate) {
+      setBookingEndDate("");
+    }
+  };
+
+  const handleEndDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const endDate = new Date(e.target.value);
+    const startDate = new Date(bookingStartDate);
+
+    if (endDate <= startDate) {
+      setDateError("End date must be after start date");
+      setBookingEndDate("");
+      return;
+    }
+
+    setDateError("");
+    setBookingEndDate(e.target.value);
+  };
 
   const fetchSpaces = async () => {
     setIsLoading(true);
@@ -149,109 +190,12 @@ export default function FindYourPlace() {
   const closeModal = () => {
     setSelectedSpace(null);
     setIsModalOpen(false);
+    setBookingStartDate("");
+    setBookingEndDate("");
+    setDateError("");
   };
 
-  const handleBookNow = async () => {
-    if (!selectedSpace) return;
-
-    try {
-      setIsProcessingPayment(true);
-
-      if (!bookingStartDate || !bookingEndDate) {
-        throw new Error("Please select booking start and end times");
-      }
-
-      const userEmail = "user@example.com"; // Should be actual user's email
-      const reference = `ref_${new Date().getTime()}`;
-
-      // Create booking first and get the total amount
-      const bookingResponse = await createBooking(reference);
-
-      // Create config object with required values using the total_amount from booking
-      const config = {
-        reference,
-        email: userEmail,
-        amount: bookingResponse.total_amount * 100, // Convert to cents/smallest currency unit
-        publicKey: "pk_test_2d8962ca7e712f2b8d07d539d8d3cbee704f025c",
-        currency: "KES",
-        callback_url: `http://localhost:5173?reference=${reference}`,
-      };
-
-      // Initialize payment hook with config
-      const initializePaystack = usePaystackPayment(config);
-
-      // Call initialize with the onSuccess callback
-      initializePaystack(() => {
-        closeModal();
-        console.log(
-          "Payment successful for booking:",
-          bookingResponse.booking_id,
-        );
-      });
-    } catch (error) {
-      console.error("Error during booking process:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to create booking. Please try again.",
-      );
-    } finally {
-      setIsProcessingPayment(false);
-    }
-  };
-
-  const verifyPaystackPayment = async (reference: string): Promise<boolean> => {
-    try {
-      const accessToken = localStorage.getItem("authToken");
-      if (!accessToken) {
-        throw new Error("No access token found");
-      }
-
-      const response = await fetch(
-        `http://127.0.0.1:5000/verify-payment/${reference}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to verify payment");
-      }
-
-      const data = await response.json();
-      return data.status === "success";
-    } catch (error) {
-      console.error("Error verifying payment:", error);
-      return false;
-    }
-  };
-
-  const handlePaymentVerification = async (reference: string) => {
-    setIsProcessingPayment(true);
-    try {
-      const isVerified = await verifyPaystackPayment(reference);
-
-      if (!isVerified) {
-        throw new Error("Payment verification failed");
-      }
-
-      await createBooking(reference);
-      alert("Payment verified! Your booking has been confirmed.");
-    } catch (error) {
-      console.error("Error verifying payment:", error);
-      alert(
-        "There was an error verifying your payment. Please contact support.",
-      );
-    } finally {
-      setIsProcessingPayment(false);
-    }
-  };
-
-  const createBooking = async (reference: string): Promise<BookingResponse> => {
+  const createBooking = async (): Promise<BookingResponse> => {
     const accessToken = localStorage.getItem("authToken");
     if (!accessToken) {
       throw new Error("No access token found");
@@ -271,7 +215,6 @@ export default function FindYourPlace() {
         space_id: selectedSpace?.space_id,
         start_datetime: bookingStartDate,
         end_datetime: bookingEndDate,
-        payment_reference: reference,
       }),
     });
 
@@ -282,6 +225,92 @@ export default function FindYourPlace() {
     }
 
     throw new Error(data.message || "Failed to create booking");
+  };
+  const handlePaymentInitiation = async () => {
+    try {
+      setIsProcessingPayment(true);
+      const bookingResponse = await createBooking();
+      setBookingId(bookingResponse.booking_id);
+      setShowPaymentModal(true);
+    } catch (error) {
+      console.error("Error creating booking:", error);
+      alert("There was an error creating your booking. Please try again.");
+    } finally {
+      setIsProcessingPayment(false);
+    }
+  };
+
+  const handlePaymentSuccess = async (reference: string) => {
+    console.log("Payment successful", reference);
+    if (bookingId) {
+      console.log(bookingId);
+      // Pass the stored bookingId, not the reference
+      await handlePaymentVerification(bookingId);
+    } else {
+      console.error("No booking ID found");
+      alert("There was an error processing your payment. Please try again.");
+    }
+  };
+
+  const verifyPaystackPayment = async (bookingId: string): Promise<boolean> => {
+    try {
+      const accessToken = localStorage.getItem("authToken");
+      if (!accessToken) {
+        throw new Error("No access token found");
+      }
+
+      const response = await fetch(
+        `http://127.0.0.1:5000/bookings/${bookingId}/verify`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to verify payment");
+      }
+
+      const data = await response.json();
+      setVerificationResponse(data);
+      return data.message === "Booking verified successfully";
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      return false;
+    }
+  };
+
+  const handlePaymentVerification = async (bookingId: string) => {
+    try {
+      const isVerified = await verifyPaystackPayment(bookingId);
+
+      if (!isVerified) {
+        throw new Error("Payment verification failed");
+      }
+
+      alert("Payment verified! Your booking has been confirmed.");
+      closeModal();
+      navigate("/Profile", { replace: true });
+    } catch (error) {
+      console.error("Error verifying payment:", error);
+      alert(
+        "There was an error verifying your payment. Please contact support.",
+      );
+    } finally {
+      setIsProcessingPayment(false);
+      setBookingId(null);
+      setShowPaymentModal(false);
+    }
+  };
+
+  const handlePaymentClose = () => {
+    console.log("Payment closed");
+    setIsProcessingPayment(false);
+    setShowPaymentModal(false);
+    setBookingId(null);
   };
 
   return (
@@ -391,12 +420,17 @@ export default function FindYourPlace() {
             ))}
           </div>
         )}
+        {showSuccessMessage && (
+          <BookingSuccess onAnimationEnd={() => setShowSuccessMessage(false)} />
+        )}
 
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>{selectedSpace?.name}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-2xl">
+                {selectedSpace?.name}
+              </DialogTitle>
+              <DialogDescription className="text-gray-600">
                 {selectedSpace?.description}
               </DialogDescription>
             </DialogHeader>
@@ -422,7 +456,8 @@ export default function FindYourPlace() {
                     id="start-time"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
                     value={bookingStartDate}
-                    onChange={(e) => setBookingStartDate(e.target.value)}
+                    min={getMinDateTime()}
+                    onChange={handleStartDateChange}
                   />
                 </div>
 
@@ -438,19 +473,39 @@ export default function FindYourPlace() {
                     id="end-time"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-gray-500 focus:ring-gray-500"
                     value={bookingEndDate}
-                    onChange={(e) => setBookingEndDate(e.target.value)}
+                    min={bookingStartDate || getMinDateTime()}
+                    onChange={handleEndDateChange}
+                    disabled={!bookingStartDate}
                   />
                 </div>
+
+                {dateError && (
+                  <p className="text-red-500 text-sm mt-2">{dateError}</p>
+                )}
               </div>
 
-              <Button
-                onClick={handleBookNow}
-                disabled={
-                  isProcessingPayment || !bookingStartDate || !bookingEndDate
-                }
-              >
-                {isProcessingPayment ? "Processing Payment..." : "Book Now"}
-              </Button>
+              {selectedSpace && !showPaymentModal && (
+                <Button
+                  onClick={handlePaymentInitiation}
+                  disabled={
+                    isProcessingPayment || !bookingStartDate || !bookingEndDate
+                  }
+                  className="w-full bg-gray-800 hover:bg-gray-700 text-white py-2 px-4 rounded-lg transition-colors duration-200"
+                >
+                  {isProcessingPayment ? "Processing..." : "Book Now"}
+                </Button>
+              )}
+              {showPaymentModal && bookingId && (
+                <PaymentModal
+                  amount={selectedSpace?.hourly_rate || 0}
+                  email="user@example.com"
+                  reference={`ref_${new Date().getTime()}`}
+                  onSuccess={handlePaymentSuccess}
+                  onClose={handlePaymentClose}
+                  isProcessing={isProcessingPayment}
+                  bookingId={bookingId}
+                />
+              )}
             </div>
           </DialogContent>
         </Dialog>
