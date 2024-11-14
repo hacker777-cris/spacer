@@ -599,6 +599,56 @@ def create_booking(current_user):
         return jsonify({"message": "Error creating booking", "error": str(e)}), 400
 
 
+# Verify Booking Endpoint
+@app.route("/bookings/<booking_id>/verify", methods=["POST"])
+@token_required
+def verify_booking(current_user, booking_id):
+    try:
+        print("this is booking_id", booking_id)
+        booking = Booking.query.get_or_404(booking_id)
+
+        # Check if user has permission to verify this booking
+        if (
+            booking.user_id != current_user.user_id
+            and "update" not in current_user.role.permissions.get("bookings", [])
+        ):
+            return jsonify({"message": "Unauthorized"}), 403
+
+        # Create a new payment
+        payment = Payment(
+            booking_id=booking.booking_id,
+            amount=booking.total_amount,
+            status="paid",
+            payment_method="paystack",
+            transaction_id=str(uuid.uuid4()),
+        )
+
+        # Update the booking status to "confirmed"
+        booking.status = "confirmed"
+
+        # Create an agreement if terms are provided
+        if not booking.agreement:
+            agreement = Agreement(
+                booking_id=booking.booking_id,
+                terms="Default terms and conditions",
+                signed=True,
+            )
+            db.session.add(agreement)
+
+        db.session.add(payment)
+        db.session.commit()
+
+        return jsonify(
+            {
+                "message": "Booking verified successfully",
+                "payment_id": str(payment.payment_id),
+            }
+        )
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error verifying booking", "error": str(e)}), 400
+
+
 # Admin Bookings Management
 @app.route("/admin/bookings", methods=["GET"])
 @admin_required
