@@ -395,7 +395,7 @@ export default function FindYourPlace() {
                     ${space.hourly_rate}/hour
                   </span>
                   <span className="text-yellow-500">
-                    ★ {space.average_rating.toFixed(1)}
+                    ★ {Number(space.average_rating).toFixed(1)}
                   </span>
                 </div>
               </div>
