@@ -881,10 +881,12 @@ def create_payment(current_user):
 def create_review(current_user, space_id):
     try:
         data = request.get_json()
+        print(data)
+        print(space_id)
 
         # Check if user has booked this space
         booking = Booking.query.filter_by(
-            user_id=current_user.user_id, space_id=space_id, status="completed"
+            user_id=current_user.user_id, space_id=space_id, status="confirmed"
         ).first()
 
         if not booking:
